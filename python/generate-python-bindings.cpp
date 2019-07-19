@@ -34,6 +34,7 @@
 #include "eos/morphablemodel/PcaModel.hpp"
 #include "eos/morphablemodel/io/cvssp.hpp"
 #include "eos/pca/pca.hpp"
+#include "eos/render/render.hpp"
 #include "eos/render/texture_extraction.hpp"
 
 #include "pybind11/pybind11.h"
@@ -346,4 +347,17 @@ PYBIND11_MODULE(eos, eos_module)
                       },
                       "Extracts the texture of the face from the given image and stores it as isomap (a rectangular texture map).",
                       py::arg("mesh"), py::arg("rendering_params"), py::arg("image"), py::arg("compute_view_angle") = false, py::arg("isomap_resolution") = 512);
+
+    render_module.def("render_frontal",
+                      [](const core::Mesh& neutral_expression,
+                         const core::Image4u& isomap) {
+                          core::Image4u frontal_rendering;
+                          glm::mat4 modelview_frontal = glm::mat4(1.0);
+                          std::tie(frontal_rendering, std::ignore) = render::render(
+                            neutral_expression, modelview_frontal, glm::ortho(-130.0f, 130.0f, -130.0f, 130.0f), 256, 256,
+                            render::create_mipmapped_texture(isomap), true, false, false);
+                          return frontal_rendering;
+                      },
+                      "Renders the given mesh onto a 2D image using 4x4 model-view and projection matrices. Conforms to OpenGL conventions.",
+                      py::arg("neutral_expression"), py::arg("isomap"));
 };
