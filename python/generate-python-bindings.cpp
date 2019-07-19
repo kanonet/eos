@@ -312,10 +312,10 @@ PYBIND11_MODULE(eos, eos_module)
            const fitting::ContourLandmarks& contour_landmarks, const fitting::ModelContour& model_contour,
            int num_iterations, cpp17::optional<int> num_shape_coefficients_to_fit, float lambda_identity,
            cpp17::optional<int> num_expression_coefficients_to_fit,
-           cpp17::optional<float> lambda_expressions) {
-            std::vector<float> pca_coeffs;
-            std::vector<float> blendshape_coeffs;
-            std::vector<Eigen::Vector2f> fitted_image_points;
+           cpp17::optional<float> lambda_expressions,
+		   std::vector<float>& pca_coeffs,
+           std::vector<float>& blendshape_coeffs,
+           std::vector<Eigen::Vector2f>& fitted_image_points) {
             const auto result = fitting::fit_shape_and_pose(
                 morphable_model, landmarks, landmark_mapper, image_width, image_height, edge_topology,
                 contour_landmarks, model_contour, num_iterations, num_shape_coefficients_to_fit,
@@ -329,7 +329,8 @@ PYBIND11_MODULE(eos, eos_module)
         py::arg("image_height"), py::arg("edge_topology"), py::arg("contour_landmarks"),
         py::arg("model_contour"), py::arg("num_iterations") = 5,
         py::arg("num_shape_coefficients_to_fit") = py::none(), py::arg("lambda_identity") = 30.0f,
-        py::arg("num_expression_coefficients_to_fit") = py::none(), py::arg("lambda_expressions") = 30.0f);
+        py::arg("num_expression_coefficients_to_fit") = py::none(), py::arg("lambda_expressions") = 30.0f,
+		py::arg("pca_coeffs") = std::vector<float>(), py::arg("blendshape_coeffs") = std::vector<float>(), py::arg("fitted_image_points") = std::vector<Eigen::Vector2f>());
 
     /**
      * Bindings for the eos::render namespace:
