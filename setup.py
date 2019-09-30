@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import sysconfig
 import platform
 import subprocess
 
@@ -43,11 +44,13 @@ class CMakeBuild(build_ext):
         cfg = 'Debug' if self.debug else 'Release'
         build_args = ['--config', cfg]
 
-        if platform.system() == "Windows":
+        if platform.system() == "Windows" and sysconfig.get_platform() != 'mingw':
             cmake_args += ['-G', 'Visual Studio 15 2017 Win64']
             cmake_args += ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), extdir)]
             build_args += ['--', '/m']
         else:
+            if sysconfig.get_platform() == 'mingw':
+                cmake_args += ['-G', 'Unix Makefiles']
             cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
             build_args += ['--', '-j2']
 
