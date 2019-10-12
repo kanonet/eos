@@ -50,6 +50,7 @@
 
 #include <cassert>
 #include <string>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace py = pybind11;
 using namespace eos;
@@ -338,16 +339,16 @@ PYBIND11_MODULE(eos, eos_module)
         "Extracts the texture of the face from the given image and stores it as isomap (a rectangular texture map).",
         py::arg("mesh"), py::arg("rendering_params"), py::arg("image"), py::arg("compute_view_angle") = false, py::arg("isomap_resolution") = 512);
 
-    render_module.def("render_frontal",
-                      [](const core::Mesh& neutral_expression,
-                         const core::Image4u& isomap) {
-                          core::Image4u frontal_rendering;
-                          glm::mat4 modelview_frontal = glm::mat4(1.0);
-                          std::tie(frontal_rendering, std::ignore) = render::render(
-                            neutral_expression, modelview_frontal, glm::ortho(-130.0f, 130.0f, -130.0f, 130.0f), 256, 256,
-                            render::create_mipmapped_texture(isomap), true, false, false);
-                          return frontal_rendering;
-                      },
-                      "Renders the given mesh onto a 2D image using 4x4 model-view and projection matrices. Conforms to OpenGL conventions.",
-                      py::arg("neutral_expression"), py::arg("isomap"));
+    render_module.def(
+        "render",
+        [](const core::Mesh& neutral_expression, std::array<std::array<float,4>,4> model_view_matrix, std::array<std::array<float,4>,4> projection_matrix, int viewport_width, int viewport_height,
+           const cpp17::optional<core::Image4u>& texture, bool enable_backface_culling, bool enable_near_clipping, bool enable_far_clipping) {
+            return render::render(
+                neutral_expression, glm::make_mat4(&model_view_matrix[0][0]), glm::make_mat4(&projection_matrix[0][0]), viewport_width, viewport_height,
+                (texture.has_value() ? cpp17::optional<render::Texture>{render::create_mipmapped_texture(*texture)} : cpp17::optional<render::Texture>{}),
+                enable_backface_culling, enable_near_clipping, enable_far_clipping).first;
+        },
+        "Renders the given mesh onto a 2D image using 4x4 model-view and projection matrices. Conforms to OpenGL conventions.",
+        py::arg("neutral_expression"), py::arg("model_view_matrix"), py::arg("projection_matrix"), py::arg("viewport_width"), py::arg("viewport_height"),
+        py::arg("texture") = py::none(), py::arg("enable_backface_culling") = false, py::arg("enable_near_clipping") = true, py::arg("enable_far_clipping") = true);
 };
