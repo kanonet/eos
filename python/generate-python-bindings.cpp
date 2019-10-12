@@ -253,12 +253,8 @@ PYBIND11_MODULE(eos, eos_module)
     py::class_<fitting::ScaledOrthoProjectionParameters>(fitting_module, "ScaledOrthoProjectionParameters", "Parameters of an estimated scaled orthographic projection.")
         .def_property_readonly("R",
              [](const fitting::ScaledOrthoProjectionParameters& p) {
-            Eigen::Matrix3f R; // we could probably use Eigen::Map
-            for (int col = 0; col < 3; ++col)
-                for (int row = 0; row < 3; ++row)
-                    R(row, col) = p.R[col][row];
-            return R;
-    }, "Rotation matrix") // we can easily make this writable if ever required, just need to add a lambda function with the Eigen to glm matrix conversion.
+                return static_cast<Eigen::Matrix3f>(Eigen::Map<Eigen::Matrix<float, 3,3, Eigen::RowMajor>>(const_cast<float*>(&p.R[0][0])));
+             }, "Rotation matrix") // we can easily make this writable if ever required, just need to add a lambda function with the Eigen to glm matrix conversion.
         .def_readwrite("s", &fitting::ScaledOrthoProjectionParameters::s, "Scale")
         .def_readwrite("tx", &fitting::ScaledOrthoProjectionParameters::tx, "x translation")
         .def_readwrite("ty", &fitting::ScaledOrthoProjectionParameters::ty, "y translation");
@@ -267,32 +263,25 @@ PYBIND11_MODULE(eos, eos_module)
         .def(py::init<fitting::ScaledOrthoProjectionParameters, int, int>(), "Create a RenderingParameters object from an instance of estimated ScaledOrthoProjectionParameters.")
         .def("get_rotation",
              [](const fitting::RenderingParameters& p) {
-                 return Eigen::Vector4f(p.get_rotation().x, p.get_rotation().y, p.get_rotation().z, p.get_rotation().w);
+                return Eigen::Vector4f(p.get_rotation().x, p.get_rotation().y, p.get_rotation().z, p.get_rotation().w);
              },
              "Returns the rotation quaternion [x y z w].")
         .def("get_rotation_euler_angles",
              [](const fitting::RenderingParameters& p) {
-                 const glm::vec3 euler_angles = glm::eulerAngles(p.get_rotation());
-                 return Eigen::Vector3f(euler_angles[0], euler_angles[1], euler_angles[2]);
-            },
+                const glm::vec3 euler_angles = glm::eulerAngles(p.get_rotation());
+                return Eigen::Vector3f(euler_angles[0], euler_angles[1], euler_angles[2]);
+             },
              "Returns the rotation's Euler angles (in radians) as [pitch, yaw, roll].")
         .def("get_modelview",
-            [](const fitting::RenderingParameters& p) {
-                Eigen::Matrix4f model_view; // we could probably use Eigen::Map
-                for (int col = 0; col < 4; ++col)
-                    for (int row = 0; row < 4; ++row)
-                        model_view(row, col) = p.get_modelview()[col][row];
-                return model_view;
-            },
-            "Returns the 4x4 model-view matrix.")
+             [](const fitting::RenderingParameters& p) {
+                return static_cast<Eigen::Matrix4f>(Eigen::Map<Eigen::Matrix<float, 4,4, Eigen::RowMajor>>(const_cast<float*>(&p.get_modelview()[0][0])));
+             },
+             "Returns the 4x4 model-view matrix.")
         .def("get_projection",
-            [](const fitting::RenderingParameters& p) {
-                Eigen::Matrix4f projection; // we could probably use Eigen::Map
-                for (int col = 0; col < 4; ++col)
-                    for (int row = 0; row < 4; ++row)
-                        projection(row, col) = p.get_projection()[col][row];
-                return projection;
-            }, "Returns the 4x4 projection matrix.");
+             [](const fitting::RenderingParameters& p) {
+                return static_cast<Eigen::Matrix4f>(Eigen::Map<Eigen::Matrix<float, 4,4, Eigen::RowMajor>>(const_cast<float*>(&p.get_projection()[0][0])));
+             },
+             "Returns the 4x4 projection matrix.");
 
     fitting_module.def("estimate_orthographic_projection_linear", &fitting::estimate_orthographic_projection_linear,
                        "This algorithm estimates the parameters of a scaled orthographic projection, given a set of corresponding 2D-3D points.",
@@ -314,7 +303,7 @@ PYBIND11_MODULE(eos, eos_module)
            int num_iterations, cpp17::optional<int> num_shape_coefficients_to_fit, float lambda_identity,
            cpp17::optional<int> num_expression_coefficients_to_fit,
            cpp17::optional<float> lambda_expressions,
-		   std::vector<float>& pca_coeffs,
+           std::vector<float>& pca_coeffs,
            std::vector<float>& blendshape_coeffs,
            std::vector<Eigen::Vector2f>& fitted_image_points) {
             const auto result = fitting::fit_shape_and_pose(
@@ -331,7 +320,7 @@ PYBIND11_MODULE(eos, eos_module)
         py::arg("model_contour"), py::arg("num_iterations") = 5,
         py::arg("num_shape_coefficients_to_fit") = py::none(), py::arg("lambda_identity") = 30.0f,
         py::arg("num_expression_coefficients_to_fit") = py::none(), py::arg("lambda_expressions") = 30.0f,
-		py::arg("pca_coeffs") = std::vector<float>(), py::arg("blendshape_coeffs") = std::vector<float>(), py::arg("fitted_image_points") = std::vector<Eigen::Vector2f>());
+        py::arg("pca_coeffs") = std::vector<float>(), py::arg("blendshape_coeffs") = std::vector<float>(), py::arg("fitted_image_points") = std::vector<Eigen::Vector2f>());
 
     /**
      * Bindings for the eos::render namespace:
@@ -339,14 +328,15 @@ PYBIND11_MODULE(eos, eos_module)
      */
     py::module render_module = eos_module.def_submodule("render", "3D mesh and texture extraction functionality.");
 
-    render_module.def("extract_texture",
-                      [](const core::Mesh& mesh, const fitting::RenderingParameters& rendering_params,
-                         const core::Image3u& image, bool compute_view_angle, int isomap_resolution) {
-                          Eigen::Matrix<float, 3, 4> affine_from_ortho = fitting::get_3x4_affine_camera_matrix(rendering_params, image.width(), image.height());
-                          return render::extract_texture(mesh, affine_from_ortho, image, compute_view_angle, render::TextureInterpolation::NearestNeighbour, isomap_resolution);
-                      },
-                      "Extracts the texture of the face from the given image and stores it as isomap (a rectangular texture map).",
-                      py::arg("mesh"), py::arg("rendering_params"), py::arg("image"), py::arg("compute_view_angle") = false, py::arg("isomap_resolution") = 512);
+    render_module.def(
+        "extract_texture",
+        [](const core::Mesh& mesh, const fitting::RenderingParameters& rendering_params,
+           const core::Image3u& image, bool compute_view_angle, int isomap_resolution) {
+            Eigen::Matrix<float, 3, 4> affine_from_ortho = fitting::get_3x4_affine_camera_matrix(rendering_params, image.width(), image.height());
+            return render::extract_texture(mesh, affine_from_ortho, image, compute_view_angle, render::TextureInterpolation::NearestNeighbour, isomap_resolution);
+        },
+        "Extracts the texture of the face from the given image and stores it as isomap (a rectangular texture map).",
+        py::arg("mesh"), py::arg("rendering_params"), py::arg("image"), py::arg("compute_view_angle") = false, py::arg("isomap_resolution") = 512);
 
     render_module.def("render_frontal",
                       [](const core::Mesh& neutral_expression,
