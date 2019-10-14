@@ -254,7 +254,7 @@ PYBIND11_MODULE(eos, eos_module)
     py::class_<fitting::ScaledOrthoProjectionParameters>(fitting_module, "ScaledOrthoProjectionParameters", "Parameters of an estimated scaled orthographic projection.")
         .def_property_readonly("R",
              [](const fitting::ScaledOrthoProjectionParameters& p) {
-                return static_cast<Eigen::Matrix3f>(Eigen::Map<Eigen::Matrix<float, 3,3, Eigen::RowMajor>>(const_cast<float*>(&p.R[0][0])));
+                return Eigen::Matrix<float, 3,3, Eigen::RowMajor>(glm::value_ptr(p.R));
              }, "Rotation matrix") // we can easily make this writable if ever required, just need to add a lambda function with the Eigen to glm matrix conversion.
         .def_readwrite("s", &fitting::ScaledOrthoProjectionParameters::s, "Scale")
         .def_readwrite("tx", &fitting::ScaledOrthoProjectionParameters::tx, "x translation")
@@ -262,25 +262,29 @@ PYBIND11_MODULE(eos, eos_module)
 
     py::class_<fitting::RenderingParameters>(fitting_module, "RenderingParameters", "Represents a set of estimated model parameters (rotation, translation) and camera parameters (viewing frustum).")
         .def(py::init<fitting::ScaledOrthoProjectionParameters, int, int>(), "Create a RenderingParameters object from an instance of estimated ScaledOrthoProjectionParameters.")
+        .def("get_translation",
+             [](const fitting::RenderingParameters& p) {
+                return Eigen::Vector3f(glm::value_ptr(p.get_translation()));
+             },
+             "Returns the translation vector [x y z]. Z is 0.0 for ortho projection.")
         .def("get_rotation",
              [](const fitting::RenderingParameters& p) {
-                return Eigen::Vector4f(p.get_rotation().x, p.get_rotation().y, p.get_rotation().z, p.get_rotation().w);
+                return Eigen::Vector4f(glm::value_ptr(p.get_rotation()));
              },
              "Returns the rotation quaternion [x y z w].")
         .def("get_rotation_euler_angles",
              [](const fitting::RenderingParameters& p) {
-                const glm::vec3 euler_angles = glm::eulerAngles(p.get_rotation());
-                return Eigen::Vector3f(euler_angles[0], euler_angles[1], euler_angles[2]);
+                return Eigen::Vector3f(glm::value_ptr(glm::eulerAngles(p.get_rotation())));
              },
              "Returns the rotation's Euler angles (in radians) as [pitch, yaw, roll].")
         .def("get_modelview",
              [](const fitting::RenderingParameters& p) {
-                return static_cast<Eigen::Matrix4f>(Eigen::Map<Eigen::Matrix<float, 4,4, Eigen::RowMajor>>(const_cast<float*>(&p.get_modelview()[0][0])));
+                return Eigen::Matrix<float, 4,4, Eigen::RowMajor>(glm::value_ptr(p.get_modelview()));
              },
              "Returns the 4x4 model-view matrix.")
         .def("get_projection",
              [](const fitting::RenderingParameters& p) {
-                return static_cast<Eigen::Matrix4f>(Eigen::Map<Eigen::Matrix<float, 4,4, Eigen::RowMajor>>(const_cast<float*>(&p.get_projection()[0][0])));
+                return Eigen::Matrix<float, 4,4, Eigen::RowMajor>(glm::value_ptr(p.get_projection()));
              },
              "Returns the 4x4 projection matrix.");
 
