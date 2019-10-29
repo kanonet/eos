@@ -27,6 +27,7 @@
 #include "eos/fitting/RenderingParameters.hpp"
 #include "eos/fitting/contour_correspondence.hpp"
 #include "eos/fitting/fitting.hpp"
+#include "eos/fitting/multi_image_fitting.hpp"
 #include "eos/fitting/orthographic_camera_estimation_linear.hpp"
 #include "eos/morphablemodel/Blendshape.hpp"
 #include "eos/morphablemodel/EdgeTopology.hpp"
@@ -308,15 +309,15 @@ PYBIND11_MODULE(eos, eos_module)
            int num_iterations, cpp17::optional<int> num_shape_coefficients_to_fit, float lambda_identity,
            cpp17::optional<int> num_expression_coefficients_to_fit,
            cpp17::optional<float> lambda_expressions,
-           std::vector<float>& pca_coeffs,
-           std::vector<float>& blendshape_coeffs,
+           std::vector<float>& pca_shape_coefficients,
+           std::vector<float>& blendshape_coefficients,
            std::vector<Eigen::Vector2f>& fitted_image_points) {
             const auto result = fitting::fit_shape_and_pose(
                 morphable_model, landmarks, landmark_mapper, image_width, image_height, edge_topology,
                 contour_landmarks, model_contour, num_iterations, num_shape_coefficients_to_fit,
-                lambda_identity, num_expression_coefficients_to_fit, lambda_expressions, pca_coeffs,
-                blendshape_coeffs, fitted_image_points);
-            return std::make_tuple(result.first, result.second, pca_coeffs, blendshape_coeffs);
+                lambda_identity, num_expression_coefficients_to_fit, lambda_expressions, pca_shape_coefficients,
+                blendshape_coefficients, fitted_image_points);
+            return std::make_tuple(result.first, result.second, pca_shape_coefficients, blendshape_coefficients);
         },
         "Fit the pose (camera), shape model, and expression blendshapes to landmarks, in an iterative way. "
         "Returns a tuple (mesh, rendering_parameters, shape_coefficients, blendshape_coefficients).",
@@ -325,7 +326,35 @@ PYBIND11_MODULE(eos, eos_module)
         py::arg("model_contour"), py::arg("num_iterations") = 5,
         py::arg("num_shape_coefficients_to_fit") = py::none(), py::arg("lambda_identity") = 30.0f,
         py::arg("num_expression_coefficients_to_fit") = py::none(), py::arg("lambda_expressions") = 30.0f,
-        py::arg("pca_coeffs") = std::vector<float>(), py::arg("blendshape_coeffs") = std::vector<float>(), py::arg("fitted_image_points") = std::vector<Eigen::Vector2f>());
+        py::arg("pca_shape_coefficients") = std::vector<float>(), py::arg("blendshape_coefficients") = std::vector<float>(), py::arg("fitted_image_points") = std::vector<Eigen::Vector2f>());
+
+    fitting_module.def(
+        "fit_shape_and_pose",
+        [](const morphablemodel::MorphableModel& morphable_model,
+           const std::vector<morphablemodel::Blendshape>& blendshapes,
+           const std::vector<core::LandmarkCollection<Eigen::Vector2f>>& landmarks,
+           const core::LandmarkMapper& landmark_mapper, std::vector<int> image_width, std::vector<int> image_height,
+           const morphablemodel::EdgeTopology& edge_topology, const fitting::ContourLandmarks& contour_landmarks,
+           const fitting::ModelContour& model_contour, int num_iterations,
+           cpp17::optional<int> num_shape_coefficients_to_fit, float lambda,
+           cpp17::optional<fitting::RenderingParameters> initial_rendering_params,
+           std::vector<float>& pca_shape_coefficients, std::vector<std::vector<float>>& blendshape_coefficients,
+           std::vector<std::vector<Eigen::Vector2f>>& fitted_image_points) {
+            const auto result = fitting::fit_shape_and_pose(
+                morphable_model, blendshapes, landmarks, landmark_mapper, image_width, image_height, edge_topology,
+                contour_landmarks, model_contour, num_iterations, num_shape_coefficients_to_fit, lambda,
+                initial_rendering_params, pca_shape_coefficients, blendshape_coefficients, fitted_image_points);
+            return std::make_tuple(result.first, result.second, pca_shape_coefficients, blendshape_coefficients);
+        },
+        "Fit the pose (camera), shape model, and expression blendshapes to landmarks, in an iterative way. "
+        "Returns a tuple (meshs, rendering_parameters, shape_coefficients, blendshape_coefficients). "
+        "This function takes a set of images and landmarks and estimates per-frame pose and expressions, as well as identity shape jointly from all images.",
+        py::arg("morphable_model"), py::arg("blendshapes"), py::arg("landmarks"), py::arg("landmark_mapper"), py::arg("image_width"),
+        py::arg("image_height"), py::arg("edge_topology"), py::arg("contour_landmarks"),
+        py::arg("model_contour"), py::arg("num_iterations") = 5,
+        py::arg("num_shape_coefficients_to_fit") = py::none(), py::arg("lambda") = 30.0f,
+        py::arg("initial_rendering_params") = py::none(), py::arg("pca_shape_coefficients") = std::vector<float>(),
+        py::arg("blendshape_coefficients") = std::vector<std::vector<float>>(), py::arg("fitted_image_points") = std::vector<std::vector<Eigen::Vector2f>>());
 
     /**
      * Bindings for the eos::render namespace:
